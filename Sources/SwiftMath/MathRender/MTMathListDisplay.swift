@@ -769,7 +769,162 @@ class MTLineDisplay : MTDisplay {
     func updateInnerPosition() {
         self.inner?.position = CGPointMake(self.position.x, self.position.y);
     }
-    
+
+}
+
+// MARK: - MTBraceDisplay
+
+/// Display for `\underbrace{...}_{label}` / `\overbrace{...}^{label}`.
+/// Lays out the braced content, a horizontal curly brace spanning the
+/// content width, and an optional centered label on the far side of the
+/// brace. The brace is stroked directly onto the CGContext with quadratic
+/// Bézier curves (cross-platform — avoids NSBezierPath/UIBezierPath API
+/// divergence).
+class MTBraceDisplay : MTDisplay {
+    let inner: MTMathListDisplay
+    let label: MTMathListDisplay?
+    /// true → underbrace (nub points down, label below); false → overbrace.
+    let isUnder: Bool
+    let braceThickness: CGFloat
+
+    // Geometry relative to the baseline origin (position). +y is up.
+    private var innerOffset = CGPoint.zero
+    private var labelOffset = CGPoint.zero
+    private var braceLeft: CGFloat = 0      // x relative to position.x
+    private var braceRight: CGFloat = 0
+    private var braceNearY: CGFloat = 0     // edge nearest the content
+    private var braceBulge: CGFloat = 0     // signed height toward the label
+
+    init(inner: MTMathListDisplay, label: MTMathListDisplay?, isUnder: Bool,
+         braceHeight: CGFloat, braceGap: CGFloat, labelGap: CGFloat,
+         thickness: CGFloat, position: CGPoint, range: NSRange) {
+        self.inner = inner
+        self.label = label
+        self.isUnder = isUnder
+        self.braceThickness = thickness
+        super.init()
+        self.range = range
+
+        let labelWidth = label?.width ?? 0
+        let totalWidth = max(inner.width, labelWidth)
+        self.width = totalWidth
+
+        let innerDX = (totalWidth - inner.width) / 2
+        let labelDX = (totalWidth - labelWidth) / 2
+
+        if isUnder {
+            // content sits on the baseline; brace + label hang below.
+            innerOffset = CGPoint(x: innerDX, y: 0)
+            braceLeft = innerDX
+            braceRight = innerDX + inner.width
+            braceNearY = -inner.descent - braceGap
+            braceBulge = braceHeight                       // nub points down
+            let braceFarY = braceNearY - braceHeight
+            if let label = label {
+                let labelBaselineY = braceFarY - labelGap - label.ascent
+                labelOffset = CGPoint(x: labelDX, y: labelBaselineY)
+                self.ascent = inner.ascent
+                self.descent = -(labelBaselineY) + label.descent
+            } else {
+                self.ascent = inner.ascent
+                self.descent = -braceFarY
+            }
+        } else {
+            // content sits on the baseline; brace + label rise above.
+            innerOffset = CGPoint(x: innerDX, y: 0)
+            braceLeft = innerDX
+            braceRight = innerDX + inner.width
+            braceNearY = inner.ascent + braceGap
+            braceBulge = -braceHeight                      // nub points up
+            let braceFarY = braceNearY + braceHeight
+            if let label = label {
+                let labelBaselineY = braceFarY + labelGap + label.descent
+                labelOffset = CGPoint(x: labelDX, y: labelBaselineY)
+                self.ascent = labelBaselineY + label.ascent
+                self.descent = inner.descent
+            } else {
+                self.ascent = braceFarY
+                self.descent = inner.descent
+            }
+        }
+
+        self.position = position
+    }
+
+    override var textColor: MTColor? {
+        set {
+            super.textColor = newValue
+            inner.textColor = newValue
+            label?.textColor = newValue
+        }
+        get { super.textColor }
+    }
+
+    override var position: CGPoint {
+        set {
+            super.position = newValue
+            updateChildPositions()
+        }
+        get { super.position }
+    }
+
+    private func updateChildPositions() {
+        inner.position = CGPointMake(position.x + innerOffset.x, position.y + innerOffset.y)
+        label?.position = CGPointMake(position.x + labelOffset.x, position.y + labelOffset.y)
+    }
+
+    override func draw(_ context: CGContext) {
+        super.draw(context)
+        inner.draw(context)
+        label?.draw(context)
+
+        context.saveGState()
+        context.setStrokeColor((self.textColor ?? MTColor.black).cgColor)
+        context.setLineWidth(braceThickness)
+        context.setLineCap(.round)
+        context.setLineJoin(.round)
+
+        // Horizontal curly brace spanning [x1,x2] at the content edge (y),
+        // bulging by `braceBulge` toward the label. Shape: end-curl → flat arm
+        // → center cusp, mirrored — the classic TeX brace. `w` is signed so
+        // the same code serves under- and over-braces (nub at y - w).
+        let x1 = position.x + braceLeft
+        let x2 = position.x + braceRight
+        let y = position.y + braceNearY
+        let w = braceBulge
+        let midX = (x1 + x2) / 2
+        let ySpine = y - w * 0.5          // height of the long horizontal arms
+        let yNub = y - w                  // central point (toward the label)
+        let yCusp = (ySpine + yNub) / 2   // control height for a pointed nub
+        // curl radius: small relative to half-width, capped by brace height
+        let r = min(abs(w) * 0.9, (x2 - x1) * 0.16)
+        let rEnd = r * 0.55               // shorter hook at the two outer tips
+
+        context.move(to: CGPoint(x: x1, y: y))
+        // left end curl (tip → arm)
+        context.addCurve(to: CGPoint(x: x1 + rEnd, y: ySpine),
+                         control1: CGPoint(x: x1 + rEnd * 0.6, y: y),
+                         control2: CGPoint(x: x1, y: ySpine))
+        // left arm
+        context.addLine(to: CGPoint(x: midX - r, y: ySpine))
+        // left half of center cusp (arm → nub), arriving vertically for a point
+        context.addCurve(to: CGPoint(x: midX, y: yNub),
+                         control1: CGPoint(x: midX - r, y: ySpine),
+                         control2: CGPoint(x: midX, y: yCusp))
+        // right half of center cusp (nub → arm), leaving vertically
+        context.addCurve(to: CGPoint(x: midX + r, y: ySpine),
+                         control1: CGPoint(x: midX, y: yCusp),
+                         control2: CGPoint(x: midX + r, y: ySpine))
+        // right arm
+        context.addLine(to: CGPoint(x: x2 - rEnd, y: ySpine))
+        // right end curl (arm → tip)
+        context.addCurve(to: CGPoint(x: x2, y: y),
+                         control1: CGPoint(x: x2, y: ySpine),
+                         control2: CGPoint(x: x2 - rEnd * 0.6, y: y))
+        context.strokePath()
+
+        context.restoreGState()
+    }
 }
 
 // MARK: - MTAccentDisplay

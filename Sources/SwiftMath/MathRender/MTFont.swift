@@ -30,25 +30,48 @@ public class MTFont {
         let fontDataProvider = CGDataProvider(filename: fontPath!)
         self.defaultCGFont = CGFont(fontDataProvider!)!
         //print("Num glyphs: \(self.defaultCGFont.numberOfGlyphs)")
-        
-        self.ctFont = CTFontCreateWithGraphicsFont(self.defaultCGFont, size, nil, nil);
-        
+
+        self.ctFont = MTFont.makeCTFont(self.defaultCGFont, size: size)
+
         //print("Loading associated .plist")
         let mathTablePlist = bundle.url(forResource:name, withExtension:"plist")
         self.rawMathTable = NSDictionary(contentsOf: mathTablePlist!)
         self.mathTable = MTFontMathTable(withFont:self, mathTable:rawMathTable!)
     }
-    
+
+    /// Fallback fonts (in priority order) used to render characters — chiefly
+    /// CJK ideographs — that the math font lacks. Attached as a CoreText
+    /// cascade list so `CTLine` substitutes them automatically. Without this,
+    /// a CTFont built straight from a CGFont has an empty cascade list and
+    /// missing glyphs render as `.notdef` (Chinese text disappears).
+    static let fallbackFontNames: [String] = [
+        "PingFang SC", "PingFang TC", "Hiragino Sans GB",
+        "Heiti SC", "STHeiti", "Apple SD Gothic Neo", "Songti SC"
+    ]
+
+    /// Builds a CTFont from `cgFont` with a CJK fallback cascade list so that
+    /// Chinese/Japanese/Korean glyphs render via font substitution.
+    static func makeCTFont(_ cgFont: CGFont, size: CGFloat) -> CTFont {
+        let base = CTFontCreateWithGraphicsFont(cgFont, size, nil, nil)
+        let cascade = fallbackFontNames.map { name in
+            CTFontDescriptorCreateWithAttributes(
+                [kCTFontNameAttribute: name as CFString] as CFDictionary)
+        }
+        let descriptor = CTFontDescriptorCreateWithAttributes(
+            [kCTFontCascadeListAttribute: cascade as CFArray] as CFDictionary)
+        return CTFontCreateCopyWithAttributes(base, size, nil, descriptor)
+    }
+
     static var fontBundle:Bundle {
         // Uses bundle for class so that this can be access by the unit tests.
         Bundle(url: Bundle.module.url(forResource: "mathFonts", withExtension: "bundle")!)!
     }
-    
+
     /** Returns a copy of this font but with a different size. */
     public func copy(withSize size: CGFloat) -> MTFont {
         let newFont = MTFont()
         newFont.defaultCGFont = self.defaultCGFont
-        newFont.ctFont = CTFontCreateWithGraphicsFont(self.defaultCGFont, size, nil, nil)
+        newFont.ctFont = MTFont.makeCTFont(self.defaultCGFont, size: size)
         newFont.rawMathTable = self.rawMathTable
         newFont.mathTable = MTFontMathTable(withFont: newFont, mathTable: newFont.rawMathTable!)
         return newFont

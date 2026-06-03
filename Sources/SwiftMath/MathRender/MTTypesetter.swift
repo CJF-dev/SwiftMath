@@ -635,14 +635,16 @@ class MTTypesetter {
                     atom.type = .ordinary;
                     
                     let under = atom as! MTUnderLine?
-                    let display = self.makeUnderline(under)
+                    let display = under?.isBrace == true
+                        ? self.makeUnderbrace(under, atom: atom)
+                        : self.makeUnderline(under)
                     displayAtoms.append(display!)
                     currentPosition.x += display!.width;
                     // add super scripts || subscripts
                     if atom.subScript != nil || atom.superScript != nil {
                         self.makeScripts(atom, display:display, index:UInt(atom.indexRange.location), delta:0)
                     }
-                    
+
                 case .overline:
                     // stash the existing layout
                     if currentLine.length > 0 {
@@ -651,9 +653,11 @@ class MTTypesetter {
                     // Overline is considered as Ord in rule 16.
                     self.addInterElementSpace(prevNode, currentType:.ordinary)
                     atom.type = .ordinary;
-                    
+
                     let over = atom as! MTOverLine?
-                    let display = self.makeOverline(over)
+                    let display = over?.isBrace == true
+                        ? self.makeOverbrace(over, atom: atom)
+                        : self.makeOverline(over)
                     displayAtoms.append(display!)
                     currentPosition.x += display!.width;
                     // add super scripts || subscripts
@@ -1442,9 +1446,47 @@ class MTTypesetter {
         overDisplay.width = innerListDisplay!.width;
         return overDisplay;
     }
-    
+
+    // MARK: - Braces (\underbrace / \overbrace)
+
+    func makeUnderbrace(_ under: MTUnderLine?, atom: MTMathAtom) -> MTDisplay? {
+        let innerDisplay = MTTypesetter.createLineForMathList(under!.innerList, font: font, style: style, cramped: cramped)!
+        // The label is the subscript; consume it so makeScripts won't re-add it.
+        var label: MTMathListDisplay? = nil
+        if let sub = atom.subScript {
+            label = MTTypesetter.createLineForMathList(sub, font: font, style: self.scriptStyle(), cramped: self.subscriptCramped())
+            atom.subScript = nil
+        }
+        let fontSize = styleFont.fontSize
+        return MTBraceDisplay(
+            inner: innerDisplay, label: label, isUnder: true,
+            braceHeight: 0.4 * fontSize,
+            braceGap: styleFont.mathTable!.underbarVerticalGap,
+            labelGap: 0.12 * fontSize,
+            thickness: 1.5 * styleFont.mathTable!.underbarRuleThickness,
+            position: currentPosition, range: under!.indexRange)
+    }
+
+    func makeOverbrace(_ over: MTOverLine?, atom: MTMathAtom) -> MTDisplay? {
+        let innerDisplay = MTTypesetter.createLineForMathList(over!.innerList, font: font, style: style, cramped: true)!
+        // The label is the superscript; consume it so makeScripts won't re-add it.
+        var label: MTMathListDisplay? = nil
+        if let sup = atom.superScript {
+            label = MTTypesetter.createLineForMathList(sup, font: font, style: self.scriptStyle(), cramped: self.superScriptCramped())
+            atom.superScript = nil
+        }
+        let fontSize = styleFont.fontSize
+        return MTBraceDisplay(
+            inner: innerDisplay, label: label, isUnder: false,
+            braceHeight: 0.4 * fontSize,
+            braceGap: styleFont.mathTable!.overbarVerticalGap,
+            labelGap: 0.12 * fontSize,
+            thickness: 1.5 * styleFont.mathTable!.underbarRuleThickness,
+            position: currentPosition, range: over!.indexRange)
+    }
+
     // MARK: - Accents
-    
+
     func isSingleCharAccentee(_ accent:MTAccent?) -> Bool {
         guard let accent = accent else { return false }
         if accent.innerList!.atoms.count != 1 {

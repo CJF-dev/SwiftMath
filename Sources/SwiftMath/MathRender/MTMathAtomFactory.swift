@@ -613,6 +613,20 @@ public class MTMathAtomFactory {
      - Chars with special meaning in latex: ^ _ { } \
      All other characters, including those with accents, will have a non-nil atom returned.
      */
+    /// Whether `u` is a CJK ideograph, kana, hangul, or CJK/fullwidth
+    /// punctuation — characters the math font lacks but which should render
+    /// (as ordinary atoms) via the CTFont cascade list.
+    static func isCJKCharacter(_ u: UTF32Char) -> Bool {
+        (u >= 0x3000 && u <= 0x303F) ||   // CJK symbols & punctuation
+        (u >= 0x3040 && u <= 0x30FF) ||   // Hiragana + Katakana
+        (u >= 0x3400 && u <= 0x4DBF) ||   // CJK Unified Ext A
+        (u >= 0x4E00 && u <= 0x9FFF) ||   // CJK Unified Ideographs
+        (u >= 0xAC00 && u <= 0xD7A3) ||   // Hangul syllables
+        (u >= 0xF900 && u <= 0xFAFF) ||   // CJK Compatibility Ideographs
+        (u >= 0xFF00 && u <= 0xFFEF) ||   // Fullwidth / Halfwidth forms
+        (u >= 0x20000 && u <= 0x2FA1F)    // CJK Unified Ext B–F
+    }
+
     public static func atom(forCharacter ch: Character) -> MTMathAtom? {
         let chStr = String(ch)
         switch chStr {
@@ -622,6 +636,12 @@ public class MTMathAtomFactory {
 			case _ where supportedAccentedCharacters.keys.contains(ch):
 				// support for áéíóúýàèìòùâêîôûäëïöüÿãñõçøåæœß'ÁÉÍÓÚÝÀÈÌÒÙÂÊÎÔÛÄËÏÖÜÃÑÕÇØÅÆŒ
 				return atom(fromAccentedCharacter: ch)
+            case _ where Self.isCJKCharacter(ch.utf32Char):
+                // CJK ideographs, kana, hangul, and CJK/fullwidth punctuation.
+                // The math font lacks these glyphs; they render via the CTFont
+                // cascade list (see MTFont.makeCTFont). Treated as ordinary so
+                // they participate normally in sub/superscripts, \text{}, etc.
+                return MTMathAtom(type: .ordinary, value: chStr)
             case _ where ch.utf32Char < 0x0021 || ch.utf32Char > 0x007E:
                 return nil
             case "$", "%", "#", "&", "~", "\'", "^", "_", "{", "}", "\\":

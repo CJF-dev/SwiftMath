@@ -432,12 +432,12 @@ public struct MTMathListBuilder {
                     }
                 } else if atom.type == .overline {
                     if let overline = atom as? MTOverLine {
-                        str += "\\overline"
+                        str += overline.isBrace ? "\\overbrace" : "\\overline"
                         str += "{\(mathListToString(overline.innerList!))}"
                     }
                 } else if atom.type == .underline {
                     if let underline = atom as? MTUnderLine {
-                        str += "\\underline"
+                        str += underline.isBrace ? "\\underbrace" : "\\underline"
                         str += "{\(mathListToString(underline.innerList!))}"
                     }
                 } else if atom.type == .accent {
@@ -581,6 +581,18 @@ public struct MTMathListBuilder {
         } else if command == "underline" {
             // The underline command has 1 arguments
             let under = MTUnderLine()
+            under.innerList = self.buildInternal(true)
+            return under
+        } else if command == "overbrace" {
+            // \overbrace{...}^{label}: a curly brace above the content.
+            let over = MTOverLine()
+            over.isBrace = true
+            over.innerList = self.buildInternal(true)
+            return over
+        } else if command == "underbrace" {
+            // \underbrace{...}_{label}: a curly brace below the content.
+            let under = MTUnderLine()
+            under.isBrace = true
             under.innerList = self.buildInternal(true)
             return under
         } else if command == "begin" {
@@ -830,7 +842,17 @@ public struct MTMathListBuilder {
         } else if command == "underline" {
             let under = MTUnderLine()
             under.innerList = self.buildInternal(true)
-            
+
+            return under
+        } else if command == "overbrace" {
+            let over = MTOverLine()
+            over.isBrace = true
+            over.innerList = self.buildInternal(true)
+            return over
+        } else if command == "underbrace" {
+            let under = MTUnderLine()
+            under.isBrace = true
+            under.innerList = self.buildInternal(true)
             return under
         } else if command == "begin" {
             if let env = self.readEnvironment() {

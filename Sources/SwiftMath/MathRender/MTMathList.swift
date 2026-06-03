@@ -513,19 +513,24 @@ public class MTInner: MTMathAtom {
 /** An atom with a line over the contained math list. */
 public class MTOverLine: MTMathAtom {
     public var innerList:  MTMathList?
-    
+    /// When true this atom renders as an over-brace (curly brace above the
+    /// content with the superscript as a centered label) instead of a line.
+    public var isBrace: Bool = false
+
     override public var finalized: MTMathAtom {
         let newOverline = MTOverLine(self)
         newOverline.innerList = newOverline.innerList?.finalized
+        newOverline.isBrace = self.isBrace
         return newOverline
     }
-    
+
     init(_ over: MTOverLine?) {
         super.init(over)
         self.type = .overline
         self.innerList = MTMathList(over!.innerList)
+        self.isBrace = over?.isBrace ?? false
     }
-    
+
     override init() {
         super.init()
         self.type = .overline
@@ -536,19 +541,24 @@ public class MTOverLine: MTMathAtom {
 /** An atom with a line under the contained math list. */
 public class MTUnderLine: MTMathAtom {
     public var innerList:  MTMathList?
-    
+    /// When true this atom renders as an under-brace (curly brace below the
+    /// content with the subscript as a centered label) instead of a line.
+    public var isBrace: Bool = false
+
     override public var finalized: MTMathAtom {
         let newUnderline = super.finalized as! MTUnderLine
         newUnderline.innerList = newUnderline.innerList?.finalized
+        newUnderline.isBrace = self.isBrace
         return newUnderline
     }
-    
+
     init(_ under: MTUnderLine?) {
         super.init(under)
         self.type = .underline
         self.innerList = MTMathList(under?.innerList)
+        self.isBrace = under?.isBrace ?? false
     }
-    
+
     override init() {
         super.init()
         self.type = .underline

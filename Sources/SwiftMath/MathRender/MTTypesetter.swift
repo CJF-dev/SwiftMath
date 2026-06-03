@@ -1449,6 +1449,17 @@ class MTTypesetter {
 
     // MARK: - Braces (\underbrace / \overbrace)
 
+    /// Build the font's vertical `{` (braceleft) assembled to `spanWidth`
+    /// tall. Rotated 90° by `MTRotatedBraceDisplay` it becomes a horizontal
+    /// brace using the font's real glyph curls (no distortion at any width).
+    /// Returns nil if the font lacks the brace assembly (caller falls back
+    /// to the Bézier brace).
+    private func braceGlyphConstruction(spanWidth: CGFloat) -> MTGlyphConstructionDisplay? {
+        let glyph = styleFont.get(glyphWithName: "braceleft")
+        guard glyph != 0 else { return nil }
+        return self.constructGlyph(glyph, withHeight: spanWidth)
+    }
+
     func makeUnderbrace(_ under: MTUnderLine?, atom: MTMathAtom) -> MTDisplay? {
         let innerDisplay = MTTypesetter.createLineForMathList(under!.innerList, font: font, style: style, cramped: cramped)!
         // The label is the subscript; consume it so makeScripts won't re-add it.
@@ -1458,6 +1469,13 @@ class MTTypesetter {
             atom.subScript = nil
         }
         let fontSize = styleFont.fontSize
+        if let brace = braceGlyphConstruction(spanWidth: innerDisplay.width) {
+            return MTRotatedBraceDisplay(
+                inner: innerDisplay, label: label, isUnder: true, brace: brace,
+                braceGap: styleFont.mathTable!.underbarVerticalGap,
+                labelGap: 0.12 * fontSize,
+                position: currentPosition, range: under!.indexRange)
+        }
         return MTBraceDisplay(
             inner: innerDisplay, label: label, isUnder: true,
             braceHeight: 0.5 * fontSize,
@@ -1476,6 +1494,13 @@ class MTTypesetter {
             atom.superScript = nil
         }
         let fontSize = styleFont.fontSize
+        if let brace = braceGlyphConstruction(spanWidth: innerDisplay.width) {
+            return MTRotatedBraceDisplay(
+                inner: innerDisplay, label: label, isUnder: false, brace: brace,
+                braceGap: styleFont.mathTable!.overbarVerticalGap,
+                labelGap: 0.12 * fontSize,
+                position: currentPosition, range: over!.indexRange)
+        }
         return MTBraceDisplay(
             inner: innerDisplay, label: label, isUnder: false,
             braceHeight: 0.5 * fontSize,

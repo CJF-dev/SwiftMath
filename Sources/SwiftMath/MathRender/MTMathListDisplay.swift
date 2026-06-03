@@ -926,6 +926,133 @@ class MTBraceDisplay : MTDisplay {
     }
 }
 
+// MARK: - MTRotatedBraceDisplay
+
+/// Horizontal `\underbrace`/`\overbrace` drawn with the font's REAL `{`
+/// glyph: a vertical brace is assembled to the content width (so the curls
+/// stay crisp and the middle tiles via the font's extender — no distortion)
+/// then rotated 90° into a horizontal brace. The label sits on the far side.
+class MTRotatedBraceDisplay : MTDisplay {
+    let inner: MTMathListDisplay
+    let label: MTMathListDisplay?
+    let isUnder: Bool
+    let brace: MTGlyphConstructionDisplay   // vertical `{` assembled to span length
+    let thickness: CGFloat                  // brace glyph's natural width → band depth
+
+    private var innerOffset = CGPoint.zero
+    private var labelOffset = CGPoint.zero
+    private var braceLeft: CGFloat = 0
+    private var braceRight: CGFloat = 0
+    private var braceNearY: CGFloat = 0     // brace edge nearest the content
+    private var braceFarY: CGFloat = 0      // brace edge nearest the label (the cusp)
+
+    init(inner: MTMathListDisplay, label: MTMathListDisplay?, isUnder: Bool,
+         brace: MTGlyphConstructionDisplay, braceGap: CGFloat, labelGap: CGFloat,
+         position: CGPoint, range: NSRange) {
+        self.inner = inner
+        self.label = label
+        self.isUnder = isUnder
+        self.brace = brace
+        self.thickness = brace.width
+        super.init()
+        self.range = range
+
+        let labelWidth = label?.width ?? 0
+        let totalWidth = max(inner.width, labelWidth)
+        self.width = totalWidth
+        let innerDX = (totalWidth - inner.width) / 2
+        let labelDX = (totalWidth - labelWidth) / 2
+        braceLeft = innerDX
+        braceRight = innerDX + inner.width
+
+        if isUnder {
+            innerOffset = CGPoint(x: innerDX, y: 0)
+            braceNearY = -inner.descent - braceGap          // opening edge (just below content)
+            braceFarY = braceNearY - thickness              // cusp (toward label, lower)
+            if let label = label {
+                let labelBaselineY = braceFarY - labelGap - label.ascent
+                labelOffset = CGPoint(x: labelDX, y: labelBaselineY)
+                self.ascent = inner.ascent
+                self.descent = -labelBaselineY + label.descent
+            } else {
+                self.ascent = inner.ascent
+                self.descent = -braceFarY
+            }
+        } else {
+            innerOffset = CGPoint(x: innerDX, y: 0)
+            braceNearY = inner.ascent + braceGap            // opening edge (just above content)
+            braceFarY = braceNearY + thickness              // cusp (toward label, higher)
+            if let label = label {
+                let labelBaselineY = braceFarY + labelGap + label.descent
+                labelOffset = CGPoint(x: labelDX, y: labelBaselineY)
+                self.ascent = labelBaselineY + label.ascent
+                self.descent = inner.descent
+            } else {
+                self.ascent = braceFarY
+                self.descent = inner.descent
+            }
+        }
+        self.position = position
+    }
+
+    override var textColor: MTColor? {
+        set {
+            super.textColor = newValue
+            inner.textColor = newValue
+            label?.textColor = newValue
+            brace.textColor = newValue
+        }
+        get { super.textColor }
+    }
+
+    override var position: CGPoint {
+        set { super.position = newValue; updateChildPositions() }
+        get { super.position }
+    }
+
+    private func updateChildPositions() {
+        inner.position = CGPointMake(position.x + innerOffset.x, position.y + innerOffset.y)
+        label?.position = CGPointMake(position.x + labelOffset.x, position.y + labelOffset.y)
+    }
+
+    override func draw(_ context: CGContext) {
+        super.draw(context)
+        inner.draw(context)
+        label?.draw(context)
+
+        context.saveGState()
+        // The brace construction stacks glyphs along its local +Y over
+        // [0, spanLength], with the glyph thickness along local +X. Map that
+        // local frame into the screen band [braceLeft,braceRight] ×
+        // [near,far] via a 90° rotation (det +1, no mirroring).
+        brace.position = .zero
+        brace.shiftDown = 0
+        brace.textColor = self.textColor
+        // The assembled brace length usually overshoots inner.width (the
+        // font snaps to the next assembly size), so CENTER it on the content
+        // using its actual length rather than anchoring an end.
+        let span = brace.ascent
+        let centerX = position.x + (braceLeft + braceRight) / 2
+        let t: CGAffineTransform
+        if isUnder {
+            // CCW +90°: (gx,gy) → (-gy, gx); length runs right-to-left over
+            // x∈[tx-span, tx], thickness runs up from the cusp.
+            t = CGAffineTransform(a: 0, b: 1, c: -1, d: 0,
+                                  tx: centerX + span / 2,
+                                  ty: position.y + braceFarY)
+        } else {
+            // CW −90°: (gx,gy) → (gy, -gx); length runs left-to-right over
+            // x∈[tx, tx+span], thickness runs down from the cusp.
+            t = CGAffineTransform(a: 0, b: -1, c: 1, d: 0,
+                                  tx: centerX - span / 2,
+                                  ty: position.y + braceFarY)
+        }
+        context.concatenate(t)
+        brace.draw(context)
+        context.restoreGState()
+    }
+}
+
 // MARK: - MTAccentDisplay
 
 /// Rendering an accent as a display

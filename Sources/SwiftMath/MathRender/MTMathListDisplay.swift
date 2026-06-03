@@ -885,44 +885,38 @@ class MTBraceDisplay : MTDisplay {
         context.setLineJoin(.round)
 
         // Horizontal curly brace spanning [x1,x2] at the content edge (y),
-        // bulging by `braceBulge` toward the label. Shape: end-curl → flat arm
-        // → center cusp, mirrored — the classic TeX brace. `w` is signed so
-        // the same code serves under- and over-braces (nub at y - w).
+        // bulging by `braceBulge` toward the label. Shape: end hook → arm
+        // sweeping into a central spike, mirrored — the classic calligraphic
+        // TeX brace. `w` is signed so the same code serves under/over-braces
+        // (nub at y - w).
         let x1 = position.x + braceLeft
         let x2 = position.x + braceRight
         let y = position.y + braceNearY
         let w = braceBulge
         let midX = (x1 + x2) / 2
-        let ySpine = y - w * 0.5          // height of the long horizontal arms
+        let ySpine = y - w * 0.5          // height of the arms
         let yNub = y - w                  // central point (toward the label)
-        let yCusp = ySpine * 0.28 + yNub * 0.72   // control height — close to the
-                                                  // nub so the central spike is sharp
         let halfWidth = (x2 - x1) / 2
-        // The end curls and the central spike are sized by the brace HEIGHT
-        // (not its width) so wide braces keep a compact sharp central point
-        // and long flat arms — matching the classic TeX \underbrace.
         let h = abs(w)
-        let cusp = min(h * 0.6, halfWidth * 0.6)   // half-width of the center spike
-        let rEnd = min(h * 0.5, halfWidth * 0.6)   // horizontal extent of an end curl
+        // End-hook horizontal extent, sized by brace HEIGHT (not width) so
+        // wide braces keep compact hooks + a long sweep.
+        let rEnd = min(h * 0.7, halfWidth * 0.5)
 
         context.move(to: CGPoint(x: x1, y: y))
-        // left end curl (tip → arm)
+        // left end hook (tip → arm), ending horizontal to blend into the arm
         context.addCurve(to: CGPoint(x: x1 + rEnd, y: ySpine),
                          control1: CGPoint(x: x1 + rEnd * 0.55, y: y),
                          control2: CGPoint(x: x1, y: ySpine))
-        // left arm (straight, flat)
-        context.addLine(to: CGPoint(x: midX - cusp, y: ySpine))
-        // left half of the central spike (arm → nub), arriving vertically
+        // left arm sweeping into the central spike — flat near the hook,
+        // curving vertically into the nub so the center is a sharp point
         context.addCurve(to: CGPoint(x: midX, y: yNub),
-                         control1: CGPoint(x: midX - cusp * 0.5, y: ySpine),
-                         control2: CGPoint(x: midX, y: yCusp))
-        // right half of the central spike (nub → arm), leaving vertically
-        context.addCurve(to: CGPoint(x: midX + cusp, y: ySpine),
-                         control1: CGPoint(x: midX, y: yCusp),
-                         control2: CGPoint(x: midX + cusp * 0.5, y: ySpine))
-        // right arm (straight, flat)
-        context.addLine(to: CGPoint(x: x2 - rEnd, y: ySpine))
-        // right end curl (arm → tip)
+                         control1: CGPoint(x: (x1 + rEnd + midX) / 2, y: ySpine),
+                         control2: CGPoint(x: midX, y: ySpine))
+        // right arm sweeping out of the central spike (mirror)
+        context.addCurve(to: CGPoint(x: x2 - rEnd, y: ySpine),
+                         control1: CGPoint(x: midX, y: ySpine),
+                         control2: CGPoint(x: (x2 - rEnd + midX) / 2, y: ySpine))
+        // right end hook (arm → tip)
         context.addCurve(to: CGPoint(x: x2, y: y),
                          control1: CGPoint(x: x2, y: ySpine),
                          control2: CGPoint(x: x2 - rEnd * 0.55, y: y))

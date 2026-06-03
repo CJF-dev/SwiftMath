@@ -1460,7 +1460,7 @@ class MTTypesetter {
         let fontSize = styleFont.fontSize
         return MTBraceDisplay(
             inner: innerDisplay, label: label, isUnder: true,
-            braceHeight: 0.4 * fontSize,
+            braceHeight: 0.5 * fontSize,
             braceGap: styleFont.mathTable!.underbarVerticalGap,
             labelGap: 0.12 * fontSize,
             thickness: 1.5 * styleFont.mathTable!.underbarRuleThickness,
@@ -1478,7 +1478,7 @@ class MTTypesetter {
         let fontSize = styleFont.fontSize
         return MTBraceDisplay(
             inner: innerDisplay, label: label, isUnder: false,
-            braceHeight: 0.4 * fontSize,
+            braceHeight: 0.5 * fontSize,
             braceGap: styleFont.mathTable!.overbarVerticalGap,
             labelGap: 0.12 * fontSize,
             thickness: 1.5 * styleFont.mathTable!.underbarRuleThickness,

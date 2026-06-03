@@ -895,32 +895,37 @@ class MTBraceDisplay : MTDisplay {
         let midX = (x1 + x2) / 2
         let ySpine = y - w * 0.5          // height of the long horizontal arms
         let yNub = y - w                  // central point (toward the label)
-        let yCusp = (ySpine + yNub) / 2   // control height for a pointed nub
-        // curl radius: small relative to half-width, capped by brace height
-        let r = min(abs(w) * 0.9, (x2 - x1) * 0.16)
-        let rEnd = r * 0.55               // shorter hook at the two outer tips
+        let yCusp = ySpine * 0.28 + yNub * 0.72   // control height — close to the
+                                                  // nub so the central spike is sharp
+        let halfWidth = (x2 - x1) / 2
+        // The end curls and the central spike are sized by the brace HEIGHT
+        // (not its width) so wide braces keep a compact sharp central point
+        // and long flat arms — matching the classic TeX \underbrace.
+        let h = abs(w)
+        let cusp = min(h * 0.6, halfWidth * 0.6)   // half-width of the center spike
+        let rEnd = min(h * 0.5, halfWidth * 0.6)   // horizontal extent of an end curl
 
         context.move(to: CGPoint(x: x1, y: y))
         // left end curl (tip → arm)
         context.addCurve(to: CGPoint(x: x1 + rEnd, y: ySpine),
-                         control1: CGPoint(x: x1 + rEnd * 0.6, y: y),
+                         control1: CGPoint(x: x1 + rEnd * 0.55, y: y),
                          control2: CGPoint(x: x1, y: ySpine))
-        // left arm
-        context.addLine(to: CGPoint(x: midX - r, y: ySpine))
-        // left half of center cusp (arm → nub), arriving vertically for a point
+        // left arm (straight, flat)
+        context.addLine(to: CGPoint(x: midX - cusp, y: ySpine))
+        // left half of the central spike (arm → nub), arriving vertically
         context.addCurve(to: CGPoint(x: midX, y: yNub),
-                         control1: CGPoint(x: midX - r, y: ySpine),
+                         control1: CGPoint(x: midX - cusp * 0.5, y: ySpine),
                          control2: CGPoint(x: midX, y: yCusp))
-        // right half of center cusp (nub → arm), leaving vertically
-        context.addCurve(to: CGPoint(x: midX + r, y: ySpine),
+        // right half of the central spike (nub → arm), leaving vertically
+        context.addCurve(to: CGPoint(x: midX + cusp, y: ySpine),
                          control1: CGPoint(x: midX, y: yCusp),
-                         control2: CGPoint(x: midX + r, y: ySpine))
-        // right arm
+                         control2: CGPoint(x: midX + cusp * 0.5, y: ySpine))
+        // right arm (straight, flat)
         context.addLine(to: CGPoint(x: x2 - rEnd, y: ySpine))
         // right end curl (arm → tip)
         context.addCurve(to: CGPoint(x: x2, y: y),
                          control1: CGPoint(x: x2, y: ySpine),
-                         control2: CGPoint(x: x2 - rEnd * 0.6, y: y))
+                         control2: CGPoint(x: x2 - rEnd * 0.55, y: y))
         context.strokePath()
 
         context.restoreGState()

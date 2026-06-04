@@ -515,6 +515,29 @@ public struct MTMathListBuilder {
         return ""
     }
     
+    /// Build the atom for `\overset{over}{base}` / `\underset{under}{base}`.
+    /// A single-atom base becomes a limits-style operator so the over/under
+    /// content sits centered above/below it at full base size (in display
+    /// style — like `\sum\limits`). A multi-atom base falls back to a
+    /// no-rule stacked fraction.
+    static func stackedAtom(base baseList: MTMathList?, over: MTMathList?, under: MTMathList?) -> MTMathAtom {
+        if let baseList, baseList.atoms.count == 1, let atom = baseList.atoms.first {
+            let op = MTLargeOperator(value: atom.nucleus, limits: true)
+            op.superScript = over
+            op.subScript = under
+            return op
+        }
+        let frac = MTFraction(hasRule: false)
+        if let over {
+            frac.numerator = over
+            frac.denominator = baseList
+        } else {
+            frac.numerator = baseList
+            frac.denominator = under
+        }
+        return frac
+    }
+
     mutating func atomForCommand(_ command:String) -> MTMathAtom? {
         if let atom = MTMathAtomFactory.atom(forLatexSymbol: command) {
             return atom
@@ -529,6 +552,22 @@ public struct MTMathListBuilder {
             frac.numerator = self.buildInternal(true)
             frac.denominator = self.buildInternal(true)
             return frac;
+        } else if command == "dfrac" || command == "tfrac" {
+            // amsmath display/text-style fractions — render as \frac.
+            let frac = MTFraction()
+            frac.numerator = self.buildInternal(true)
+            frac.denominator = self.buildInternal(true)
+            return frac
+        } else if command == "overset" || command == "stackrel" {
+            // \overset{top}{base}: top centered above base.
+            let over = self.buildInternal(true)
+            let base = self.buildInternal(true)
+            return Self.stackedAtom(base: base, over: over, under: nil)
+        } else if command == "underset" {
+            // \underset{below}{base}: below centered under base.
+            let below = self.buildInternal(true)
+            let base = self.buildInternal(true)
+            return Self.stackedAtom(base: base, over: nil, under: below)
         } else if command == "binom" {
             // A binom command has 2 arguments
             let frac = MTFraction(hasRule: false)
@@ -801,6 +840,19 @@ public struct MTMathListBuilder {
             frac.numerator = self.buildInternal(true)
             frac.denominator = self.buildInternal(true)
             return frac
+        } else if command == "dfrac" || command == "tfrac" {
+            let frac = MTFraction()
+            frac.numerator = self.buildInternal(true)
+            frac.denominator = self.buildInternal(true)
+            return frac
+        } else if command == "overset" || command == "stackrel" {
+            let over = self.buildInternal(true)
+            let base = self.buildInternal(true)
+            return Self.stackedAtom(base: base, over: over, under: nil)
+        } else if command == "underset" {
+            let below = self.buildInternal(true)
+            let base = self.buildInternal(true)
+            return Self.stackedAtom(base: base, over: nil, under: below)
         } else if command == "binom" {
             let frac = MTFraction(hasRule: false)
             frac.numerator = self.buildInternal(true)

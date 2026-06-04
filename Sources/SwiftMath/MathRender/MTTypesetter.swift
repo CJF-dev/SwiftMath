@@ -993,6 +993,12 @@ class MTTypesetter {
     }
     
     func makeFraction(_ frac:MTFraction?) -> MTDisplay? {
+        // \dfrac / \tfrac force a style regardless of context. Override the
+        // current style for the duration of this fraction's layout so its
+        // size, gaps and rule position all follow the forced style.
+        let savedStyle = self.style
+        if let forced = frac?.forcedStyle { self.style = forced }
+        defer { self.style = savedStyle }
         // lay out the parts of the fraction
         let fractionStyle = self.fractionStyle;
         let numeratorDisplay = MTTypesetter.createLineForMathList(frac!.numerator, font:font, style:fractionStyle(), cramped:false)

@@ -553,8 +553,10 @@ public struct MTMathListBuilder {
             frac.denominator = self.buildInternal(true)
             return frac;
         } else if command == "dfrac" || command == "tfrac" {
-            // amsmath display/text-style fractions — render as \frac.
+            // amsmath fractions that FORCE a style regardless of context:
+            // \dfrac → display (large), \tfrac → text (small).
             let frac = MTFraction()
+            frac.forcedStyle = (command == "dfrac") ? .display : .text
             frac.numerator = self.buildInternal(true)
             frac.denominator = self.buildInternal(true)
             return frac
@@ -842,6 +844,7 @@ public struct MTMathListBuilder {
             return frac
         } else if command == "dfrac" || command == "tfrac" {
             let frac = MTFraction()
+            frac.forcedStyle = (command == "dfrac") ? .display : .text
             frac.numerator = self.buildInternal(true)
             frac.denominator = self.buildInternal(true)
             return frac

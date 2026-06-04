@@ -328,7 +328,11 @@ public class MTFraction: MTMathAtom {
     public var rightDelimiter = ""
     public var numerator: MTMathList?
     public var denominator: MTMathList?
-    
+    /// When set, the fraction is typeset in this style regardless of the
+    /// surrounding context. `\dfrac` forces `.display`, `\tfrac` forces
+    /// `.text`; plain `\frac` leaves this nil (style follows context).
+    public var forcedStyle: MTLineStyle? = nil
+
     init(_ frac: MTFraction?) {
         super.init(frac)
         self.type = .fraction
@@ -338,6 +342,7 @@ public class MTFraction: MTMathAtom {
             self.hasRule = frac.hasRule
             self.leftDelimiter = frac.leftDelimiter
             self.rightDelimiter = frac.rightDelimiter
+            self.forcedStyle = frac.forcedStyle
         }
     }
     
@@ -369,9 +374,10 @@ public class MTFraction: MTMathAtom {
         let newFrac = super.finalized as! MTFraction
         newFrac.numerator = newFrac.numerator?.finalized
         newFrac.denominator = newFrac.denominator?.finalized
+        newFrac.forcedStyle = self.forcedStyle
         return newFrac
     }
-    
+
 }
 
 // MARK: - MTRadical
